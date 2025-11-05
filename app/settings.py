@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'api',
     'accounts',
     'product',
+    'sitesetting',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
