@@ -3,4 +3,5 @@ from .views import ContactView
 
 urlpatterns = [
     path('contact/', ContactView.as_view(), name='contact'),
+    path('contact/<int:pk>/', ContactView.as_view(), name='contact-status-update'),
 ]
