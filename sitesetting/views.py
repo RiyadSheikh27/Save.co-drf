@@ -8,16 +8,52 @@ class ContactView(APIView):
     # Fetch all contacts
     def get(self, request):
         try:
-            contacts = Contact.objects.all()
+            contacts = Contact.objects.all().order_by('-created_at')
             serializer = ContactSerializer(contacts, many=True)
-            return Response(serializer.data)
+
+            if contacts.exists():
+                return Response({
+                    "success": True,
+                    "message": "Contacts fetched successfully",
+                    "count": contacts.count(),
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "success": True,
+                    "message": "No contacts found",
+                    "count": 0,
+                    "data": []
+                }, status=status.HTTP_200_OK)
+
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                "success": False,
+                "message": "Something went wrong while fetching contacts",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # Create a new contact
     def post(self, request):
-        serializer = ContactSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            serializer = ContactSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "success": True,
+                    "message": "Contact created successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_201_CREATED)
+            else:
+                return Response({
+                    "success": False,
+                    "message": "Validation failed",
+                    "errors": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Something went wrong while creating contact",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
