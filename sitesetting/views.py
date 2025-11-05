@@ -3,12 +3,22 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Contact
 from .serializers import ContactSerializer
+from accounts.permissions import IsAdmin
+from rest_framework.pagination import PageNumberPagination
+
 
 class ContactView(APIView):
-    # Fetch all contacts
+
+    def get_permissions(self):
+        # Admins only for any PATCH, DELETE
+        if self.request.method in ["PATCH", "DELETE"]:
+            return [IsAdmin()]
+        return []
+
     def get(self, request, pk=None):
         try:
-            if pk:  # Fetch single contact
+            if pk:
+                # Fetch single contact
                 contact = Contact.objects.get(pk=pk)
                 serializer = ContactSerializer(contact)
                 return Response({
@@ -16,24 +26,19 @@ class ContactView(APIView):
                     "message": "Contact fetched successfully",
                     "data": serializer.data
                 }, status=status.HTTP_200_OK)
-            else:  # Fetch all contacts
+            else:
+                # Fetch all contacts with pagination
                 contacts = Contact.objects.all().order_by('-created_at')
-                serializer = ContactSerializer(contacts, many=True)
-
-                if contacts.exists():
-                    return Response({
-                        "success": True,
-                        "message": "Contacts fetched successfully",
-                        "count": contacts.count(),
-                        "data": serializer.data
-                    }, status=status.HTTP_200_OK)
-                else:
-                    return Response({
-                        "success": True,
-                        "message": "No contacts found",
-                        "count": 0,
-                        "data": []
-                    }, status=status.HTTP_200_OK)
+                paginator = PageNumberPagination()
+                paginator.page_size = 10  # default page size
+                result_page = paginator.paginate_queryset(contacts, request)
+                serializer = ContactSerializer(result_page, many=True)
+                return paginator.get_paginated_response({
+                    "success": True,
+                    "message": "Contacts fetched successfully" if contacts.exists() else "No contacts found",
+                    "count": contacts.count(),
+                    "data": serializer.data
+                })
 
         except Contact.DoesNotExist:
             return Response({
@@ -47,7 +52,6 @@ class ContactView(APIView):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Create a new contact
     def post(self, request):
         try:
             serializer = ContactSerializer(data=request.data)
@@ -64,7 +68,6 @@ class ContactView(APIView):
                     "message": "Validation failed",
                     "errors": serializer.errors
                 }, status=status.HTTP_400_BAD_REQUEST)
-
         except Exception as e:
             return Response({
                 "success": False,
@@ -81,7 +84,6 @@ class ContactView(APIView):
                 "message": f"Contact with id {pk} not found"
             }, status=status.HTTP_404_NOT_FOUND)
 
-        # Only update 'status'
         status_value = request.data.get('status')
         if not status_value:
             return Response({
@@ -98,7 +100,7 @@ class ContactView(APIView):
             "message": "Contact status updated successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
-    
+
     def delete(self, request, pk):
         try:
             contact = Contact.objects.get(pk=pk)
